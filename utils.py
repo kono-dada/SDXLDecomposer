@@ -40,13 +40,19 @@ def concat_img(img_list: List[torch.Tensor] | torch.Tensor, nrow: int = 10) -> I
     return grid_image
 
 
-def pca(x: torch.Tensor, target_dim: int):  # x: (n, d)
+def pca(x: torch.Tensor, target_dim: int, baseline_V: torch.Tensor = None):  # x: (n, d)
     _x = x.float().cuda()
     _x = _x - _x.mean(dim=0)
     U, S, V = torch.svd(_x)
     V_reduced = V[:, :target_dim]
+    # 如果提供了基准特征向量，则进行对齐
+    if baseline_V is not None:
+        for i in range(target_dim):
+            dot_product = torch.dot(V_reduced[:, i], baseline_V[:, i])
+            if dot_product < 0:
+                V_reduced[:, i] *= -1
     projected_x = torch.mm(_x, V_reduced)
-    return projected_x.cpu()
+    return projected_x.cpu(), V_reduced
 
 
 def interpolate_latents_and_inference(

@@ -25,7 +25,7 @@ class SDHiddenRecorder:
         self.hiddens = [{}]
         for name, module in self.unet.named_modules():
             if name in layer_ids:
-                print(f'Hooking {name}')
+                print(f'Hooking {name}', end=', ')
                 module.register_forward_hook(self.get_hook_fn(name))
                 
     def get_hook_fn(self, module_name: str):
@@ -38,7 +38,7 @@ class SDHiddenRecorder:
         self.hiddens.append({})
         return kwargs
     
-    def qkv_visualization(self, attn_id: str, dim=3, chunk=1):
+    def qkv_visualization(self, attn_id: str, dim=3, chunk=1, show=False):
         r"""
         Visualize the QKV of the attentions by projecting them into a 3D (RGB) space.
         
@@ -50,23 +50,29 @@ class SDHiddenRecorder:
                 The first chunk is the unconditional (negative prompt) latent, and the second chunk is the conditional latent.
         """
         img_list = []
-        for attn in tqdm(self.hiddens):
+        for i, attn in tqdm(enumerate(self.hiddens)):
             tgt = attn[attn_id]  # (heads, h*w, c)
             h, n, c = tgt.shape
             tgt = torch.chunk(tgt, 2, dim=0)[chunk]
             tgt = tgt.permute(1, 2, 0).reshape(n, -1)  # (h*w, c*heads)
             hxw = tgt.shape[-2]
             size = int(hxw ** 0.5)
-            tgt = pca(tgt, dim)
+            if i == 0:
+                tgt, baseline_V = pca(tgt, dim)
+            else:
+                tgt, _ = pca(tgt, dim, baseline_V)
             image = tgt.transpose(-1, -2).reshape(dim, size, size)  # (dim, h, w)
             image = (image - image.min()) / (image.max() - image.min())
             image = image.unsqueeze(0)
             img_list.append(image)
-        plt.figure(figsize=(20, 10))
-        plt.title(f'{attn_id}')
-        plt.imshow(concat_img(img_list))
+        if show:
+            plt.figure(figsize=(20, 10))
+            plt.title(f'{attn_id}')
+            img = concat_img(img_list)
+            plt.imshow(img)
+        return img
         
-    def feature_visualization(self, feature_id: str, dim=3, chunk=1):
+    def feature_visualization(self, feature_id: str, dim=3, chunk=1, show=False):
         r"""
         Visualize the QKV of the attentions by projecting them into a 3D (RGB) space.
         
@@ -78,7 +84,7 @@ class SDHiddenRecorder:
                 The first chunk is the unconditional (negative prompt) latent, and the second chunk is the conditional latent.
         """
         img_list = []
-        for attn in tqdm(self.hiddens):
+        for i, attn in tqdm(enumerate(self.hiddens)):
             tgt = attn[feature_id]  # (b, c, h, w)
             b, c, h, w = tgt.shape
             tgt = tgt.reshape(b, c, -1).permute(0, 2, 1)
@@ -87,13 +93,19 @@ class SDHiddenRecorder:
             tgt = tgt.permute(1, 2, 0).reshape(n, -1)  # (h*w, c*heads)
             hxw = tgt.shape[-2]
             size = int(hxw ** 0.5)
-            tgt = pca(tgt, dim)
+            if i == 0:
+                tgt, baseline_V = pca(tgt, dim)
+            else:
+                tgt, _ = pca(tgt, dim, baseline_V)
             image = tgt.transpose(-1, -2).reshape(dim, size, size)  # (dim, h, w)
             image = (image - image.min()) / (image.max() - image.min())
             image = image.unsqueeze(0)
             img_list.append(image)
-        plt.figure(figsize=(20, 10))
-        plt.title(f'{feature_id}')
-        plt.imshow(concat_img(img_list))
+        if show:
+            plt.figure(figsize=(20, 10))
+            plt.title(f'{feature_id}')
+            img = concat_img(img_list)
+            plt.imshow(img)
+        return img
         
 
