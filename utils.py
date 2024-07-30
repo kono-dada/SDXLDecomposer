@@ -34,7 +34,7 @@ def concat_img(img_list: List[torch.Tensor] | torch.Tensor, nrow: int = 10) -> I
             raise ValueError(f"Unsupported dimension: {img_list[0].dim()}")
     else:
         images = img_list
-    grid_image = make_grid(images, nrow=10)
+    grid_image = make_grid(images, nrow=nrow)
     grid_image = grid_image.permute(1, 2, 0).cpu().numpy()
     grid_image = Image.fromarray((grid_image * 255).astype('uint8'))
     return grid_image
